@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install system dependencies
+      - name: Install system deps
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq \
@@ -24,15 +24,8 @@ jobs:
           python3 -m pip install --upgrade pip -q
           python3 -m pip install buildozer cython -q
 
-      - name: Build APK (pass 1 - build hostpython, kivy may fail)
-        continue-on-error: true
-        run: yes | buildozer -v android debug || true
-
-      - name: Patch hostpython cgi module
-        run: bash patches/patch_cgi.sh
-
-      - name: Build APK (pass 2)
-        run: buildozer -v android debug
+      - name: Build APK
+        run: yes | buildozer -v android debug
 
       - name: Upload APK
         if: always()
