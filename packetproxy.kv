@@ -1,0 +1,568 @@
+#:kivy 2.2.1
+#:import hex_color kivy.utils.get_color_from_hex
+
+MDScreenManager:
+    ServerScreen:
+        name: 'server'
+    PacketScreen:
+        name: 'packets'
+    SendScreen:
+        name: 'send'
+    IptablesScreen:
+        name: 'iptables'
+    LogScreen:
+        name: 'logs'
+
+# ═══════════════════════════════════════════════════════════════════
+# 主页 — 透明代理 (Mode B) + SOCKS5 (Mode A)
+# ═══════════════════════════════════════════════════════════════════
+<ServerScreen>:
+    MDBoxLayout:
+        orientation: 'vertical'
+        padding: dp(12)
+        spacing: dp(10)
+
+        MDLabel:
+            text: 'PacketProxy'
+            font_style: 'Headline'
+            adaptive_height: True
+            padding: [dp(4), dp(4)]
+
+        # ═══ Mode B: 透明代理（主要） ═══════════════════════════════
+        MDCard:
+            padding: dp(12)
+            spacing: dp(8)
+            elevation: 3
+            radius: dp(12)
+            md_bg_color: hex_color('#1A237E')
+            line_color: hex_color('#3949AB')
+
+            MDBoxLayout:
+                orientation: 'vertical'
+                spacing: dp(6)
+                adaptive_height: True
+
+                MDLabel:
+                    text: 'Mode B — 本地透明代理（推荐）'
+                    font_style: 'Subtitle1'
+                    bold: True
+                    theme_text_color: 'Custom'
+                    text_color: 1, 1, 1, 1
+                    adaptive_height: True
+
+                MDLabel:
+                    text: 'Root + iptables REDIRECT, 拦截手机上指定 App 的 TCP 流量'
+                    font_style: 'Caption'
+                    theme_text_color: 'Custom'
+                    text_color: 1, 1, 1, 0.7
+                    adaptive_height: True
+
+                MDTextField:
+                    id: transparent_port_input
+                    text: '3161'
+                    hint_text: '透明代理端口'
+                    mode: 'rectangle'
+                    input_filter: 'int'
+                    size_hint_y: None
+                    height: dp(48)
+                    line_color_focus: 1, 1, 1, 0.8
+
+                MDBoxLayout:
+                    adaptive_height: True
+                    spacing: dp(10)
+                    pos_hint: {'center_x': 0.5}
+
+                    MDRaisedButton:
+                        id: transparent_start_btn
+                        text: '启动透明代理'
+                        on_release: app.start_transparent()
+                        md_bg_color: hex_color('#283593')
+                        size_hint_x: 0.45
+
+                    MDRaisedButton:
+                        id: transparent_stop_btn
+                        text: '停止'
+                        on_release: app.stop_transparent()
+                        md_bg_color: hex_color('#C62828')
+                        size_hint_x: 0.45
+                        disabled: True
+
+        # ═══ Mode A: LAN SOCKS5（辅助） ═════════════════════════════
+        MDCard:
+            padding: dp(12)
+            spacing: dp(8)
+            elevation: 2
+            radius: dp(12)
+
+            MDBoxLayout:
+                orientation: 'vertical'
+                spacing: dp(6)
+                adaptive_height: True
+
+                MDLabel:
+                    text: 'Mode A — 局域网 SOCKS5（PC 代理）'
+                    font_style: 'Subtitle1'
+                    bold: True
+                    adaptive_height: True
+
+                MDLabel:
+                    id: lan_info_label
+                    text: '检测中...'
+                    font_style: 'Caption'
+                    theme_text_color: 'Secondary'
+                    adaptive_height: True
+
+                MDTextField:
+                    id: host_input
+                    text: '0.0.0.0'
+                    hint_text: '监听地址 (0.0.0.0=所有网卡)'
+                    mode: 'rectangle'
+                    size_hint_y: None
+                    height: dp(44)
+
+                MDTextField:
+                    id: port_input
+                    text: '3160'
+                    hint_text: 'SOCKS5 端口 (PC 端填此端口)'
+                    mode: 'rectangle'
+                    input_filter: 'int'
+                    size_hint_y: None
+                    height: dp(44)
+
+                MDBoxLayout:
+                    adaptive_height: True
+                    spacing: dp(10)
+                    pos_hint: {'center_x': 0.5}
+
+                    MDRaisedButton:
+                        id: start_btn
+                        text: '启动 SOCKS5'
+                        on_release: app.start_server()
+                        md_bg_color: hex_color('#1565C0')
+                        size_hint_x: 0.45
+
+                    MDRaisedButton:
+                        id: stop_btn
+                        text: '停止'
+                        on_release: app.stop_server()
+                        md_bg_color: hex_color('#C62828')
+                        size_hint_x: 0.45
+                        disabled: True
+
+        # ═══ 拦截控制 ═════════════════════════════════════════════
+        MDCard:
+            padding: dp(12)
+            spacing: dp(8)
+            elevation: 2
+            radius: dp(12)
+
+            MDBoxLayout:
+                orientation: 'vertical'
+                spacing: dp(8)
+                adaptive_height: True
+
+                MDLabel:
+                    text: '拦截控制'
+                    font_style: 'Subtitle1'
+                    bold: True
+                    adaptive_height: True
+
+                MDBoxLayout:
+                    adaptive_height: True
+                    spacing: dp(10)
+
+                    MDRaisedButton:
+                        id: intercept_btn
+                        text: '开始拦截'
+                        on_release: app.toggle_interception()
+                        md_bg_color: hex_color('#2E7D32')
+                        size_hint_x: 0.45
+
+                    MDRaisedButton:
+                        id: clear_btn
+                        text: '清除数据'
+                        on_release: app.clear_packets()
+                        md_bg_color: hex_color('#546E7A')
+                        size_hint_x: 0.45
+
+        # ═══ 统计 + 状态 ══════════════════════════════════════════
+        MDBoxLayout:
+            adaptive_height: True
+            spacing: dp(6)
+
+            MDChip:
+                id: stat_total
+                text: '总计: 0'
+                md_bg_color: hex_color('#1565C0')
+                text_color: 1, 1, 1, 1
+
+            MDChip:
+                id: stat_sent
+                text: '上行: 0'
+                md_bg_color: hex_color('#2E7D32')
+                text_color: 1, 1, 1, 1
+
+            MDChip:
+                id: stat_recv
+                text: '下行: 0'
+                md_bg_color: hex_color('#E65100')
+                text_color: 1, 1, 1, 1
+
+        MDLabel:
+            id: status_label
+            text: '服务器未启动'
+            halign: 'center'
+            theme_text_color: 'Secondary'
+            font_style: 'Caption'
+            adaptive_height: True
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 数据包列表
+# ═══════════════════════════════════════════════════════════════════
+<PacketScreen>:
+    MDBoxLayout:
+        orientation: 'vertical'
+        padding: dp(12)
+        spacing: dp(10)
+
+        MDLabel:
+            text: '数据包列表'
+            font_style: 'Headline'
+            adaptive_height: True
+            padding: [dp(4), dp(8)]
+
+        MDBoxLayout:
+            adaptive_height: True
+            spacing: dp(4)
+            padding: dp(8)
+            radius: dp(6)
+            md_bg_color: 0, 0, 0, 0.15
+
+            MDLabel:
+                text: 'ID'
+                font_style: 'Caption'
+                bold: True
+                size_hint_x: 0.08
+            MDLabel:
+                text: '方向'
+                font_style: 'Caption'
+                bold: True
+                size_hint_x: 0.12
+            MDLabel:
+                text: '端口'
+                font_style: 'Caption'
+                bold: True
+                size_hint_x: 0.1
+            MDLabel:
+                text: '大小'
+                font_style: 'Caption'
+                bold: True
+                size_hint_x: 0.1
+            MDLabel:
+                text: '时间'
+                font_style: 'Caption'
+                bold: True
+                size_hint_x: 0.15
+            MDLabel:
+                text: '内容'
+                font_style: 'Caption'
+                bold: True
+                size_hint_x: 0.45
+
+        ScrollView:
+            do_scroll_x: False
+            bar_width: dp(4)
+
+            MDBoxLayout:
+                id: packet_list
+                orientation: 'vertical'
+                spacing: dp(1)
+                adaptive_height: True
+
+        MDBoxLayout:
+            adaptive_height: True
+            spacing: dp(8)
+            pos_hint: {'center_x': 0.5}
+
+            MDFlatButton:
+                text: '导出 JSON'
+                on_release: app.export_packets()
+                theme_text_color: 'Primary'
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 自定义发送
+# ═══════════════════════════════════════════════════════════════════
+<SendScreen>:
+    MDBoxLayout:
+        orientation: 'vertical'
+        padding: dp(12)
+        spacing: dp(10)
+
+        MDLabel:
+            text: '自定义发送'
+            font_style: 'Headline'
+            adaptive_height: True
+            padding: [dp(4), dp(8)]
+
+        MDCard:
+            padding: dp(12)
+            spacing: dp(10)
+            elevation: 2
+            radius: dp(12)
+
+            MDBoxLayout:
+                orientation: 'vertical'
+                spacing: dp(10)
+                adaptive_height: True
+
+                MDTextField:
+                    id: target_port_input
+                    hint_text: '目标端口'
+                    mode: 'rectangle'
+                    input_filter: 'int'
+                    size_hint_y: None
+                    height: dp(52)
+
+                MDTextField:
+                    id: hex_data_input
+                    hint_text: '十六进制数据 (例: 00 1A FF CD)'
+                    mode: 'rectangle'
+                    multiline: True
+                    size_hint_y: None
+                    height: dp(120)
+
+                MDRaisedButton:
+                    text: '发送数据包'
+                    on_release: app.send_custom_packet()
+                    md_bg_color: hex_color('#1565C0')
+                    pos_hint: {'center_x': 0.5}
+                    size_hint_x: 0.6
+
+        MDCard:
+            padding: dp(12)
+            spacing: dp(6)
+            elevation: 2
+            radius: dp(12)
+
+            MDBoxLayout:
+                orientation: 'vertical'
+                spacing: dp(6)
+                adaptive_height: True
+
+                MDLabel:
+                    text: '发送历史'
+                    font_style: 'Subtitle1'
+                    bold: True
+                    adaptive_height: True
+
+                ScrollView:
+                    do_scroll_x: False
+                    bar_width: dp(4)
+                    size_hint_y: None
+                    height: dp(180)
+
+                    MDBoxLayout:
+                        id: send_history
+                        orientation: 'vertical'
+                        spacing: dp(1)
+                        adaptive_height: True
+
+
+# ═══════════════════════════════════════════════════════════════════
+# iptables 规则管理（Mode B 核心设置页）
+# ═══════════════════════════════════════════════════════════════════
+<IptablesScreen>:
+    MDBoxLayout:
+        orientation: 'vertical'
+        padding: dp(12)
+        spacing: dp(10)
+
+        MDLabel:
+            text: 'Mode B — iptables 规则'
+            font_style: 'Headline'
+            adaptive_height: True
+            padding: [dp(4), dp(8)]
+
+        # 系统状态
+        MDCard:
+            padding: dp(12)
+            spacing: dp(8)
+            elevation: 2
+            radius: dp(12)
+
+            MDBoxLayout:
+                orientation: 'vertical'
+                spacing: dp(6)
+                adaptive_height: True
+
+                MDLabel:
+                    id: root_status_label
+                    text: 'Root: 检查中...'
+                    font_style: 'Subtitle1'
+                    adaptive_height: True
+
+                MDLabel:
+                    id: iptables_status_label
+                    text: '规则状态: 未应用'
+                    font_style: 'Caption'
+                    theme_text_color: 'Secondary'
+                    adaptive_height: True
+
+                MDBoxLayout:
+                    adaptive_height: True
+                    spacing: dp(8)
+
+                    MDRaisedButton:
+                        text: '刷新'
+                        on_release: app.refresh_iptables_status()
+                        md_bg_color: hex_color('#546E7A')
+                        size_hint_x: 0.2
+
+                    MDRaisedButton:
+                        text: '全局模式'
+                        on_release: app.apply_iptables_global()
+                        md_bg_color: hex_color('#E65100')
+                        size_hint_x: 0.35
+
+                    MDRaisedButton:
+                        text: '移除规则'
+                        on_release: app.remove_iptables_rules()
+                        md_bg_color: hex_color('#C62828')
+                        size_hint_x: 0.35
+
+        # 应用选择
+        MDCard:
+            padding: dp(12)
+            spacing: dp(8)
+            elevation: 2
+            radius: dp(12)
+
+            MDBoxLayout:
+                orientation: 'vertical'
+                spacing: dp(6)
+                adaptive_height: True
+
+                MDLabel:
+                    text: '选择目标应用'
+                    font_style: 'Subtitle1'
+                    bold: True
+                    adaptive_height: True
+
+                MDLabel:
+                    text: '点击选中（蓝色）→ 点"应用规则"。透明代理会自动启动。'
+                    font_style: 'Caption'
+                    theme_text_color: 'Secondary'
+                    adaptive_height: True
+
+                MDBoxLayout:
+                    adaptive_height: True
+                    spacing: dp(8)
+
+                    MDLabel:
+                        id: app_count_label
+                        text: '点击"刷新"加载列表'
+                        font_style: 'Caption'
+                        theme_text_color: 'Secondary'
+                        adaptive_height: True
+                        size_hint_x: 0.6
+
+                    MDLabel:
+                        id: selected_count_label
+                        text: '已选 0 个'
+                        font_style: 'Caption'
+                        bold: True
+                        adaptive_height: True
+                        size_hint_x: 0.4
+
+                ScrollView:
+                    do_scroll_x: False
+                    bar_width: dp(4)
+                    size_hint_y: None
+                    height: dp(300)
+
+                    MDBoxLayout:
+                        id: app_list_box
+                        orientation: 'vertical'
+                        spacing: dp(1)
+                        adaptive_height: True
+
+                MDRaisedButton:
+                    text: '应用规则（启动 Mode B）'
+                    on_release: app.apply_iptables_rules()
+                    md_bg_color: hex_color('#283593')
+                    pos_hint: {'center_x': 0.5}
+                    size_hint_x: 0.7
+
+        # 当前规则
+        MDCard:
+            padding: dp(12)
+            spacing: dp(6)
+            elevation: 2
+            radius: dp(12)
+
+            MDBoxLayout:
+                orientation: 'vertical'
+                spacing: dp(4)
+                adaptive_height: True
+
+                MDLabel:
+                    text: '当前 iptables NAT 规则'
+                    font_style: 'Subtitle1'
+                    bold: True
+                    adaptive_height: True
+
+                ScrollView:
+                    do_scroll_x: True
+                    bar_width: dp(4)
+                    size_hint_y: None
+                    height: dp(120)
+
+                    MDLabel:
+                        id: iptables_rules_label
+                        text: '无规则'
+                        font_style: 'Caption'
+                        adaptive_height: True
+                        markup: True
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 日志
+# ═══════════════════════════════════════════════════════════════════
+<LogScreen>:
+    MDBoxLayout:
+        orientation: 'vertical'
+        padding: dp(12)
+        spacing: dp(10)
+
+        MDLabel:
+            text: '运行日志'
+            font_style: 'Headline'
+            adaptive_height: True
+            padding: [dp(4), dp(8)]
+
+        ScrollView:
+            do_scroll_x: True
+            bar_width: dp(4)
+
+            MDLabel:
+                id: log_text
+                text: '[等待日志...]'
+                font_style: 'Caption'
+                adaptive_height: True
+                markup: True
+
+        MDBoxLayout:
+            adaptive_height: True
+            spacing: dp(8)
+            MDRaisedButton:
+                text: '清除日志'
+                on_release: app.clear_logs()
+                md_bg_color: hex_color('#546E7A')
+                size_hint_x: 0.4
+            MDRaisedButton:
+                text: '复制日志'
+                on_release: app.copy_logs()
+                md_bg_color: hex_color('#1565C0')
+                size_hint_x: 0.4

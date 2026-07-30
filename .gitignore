@@ -1,0 +1,8 @@
+python版封包开源/
+__pycache__/
+*.pyc
+*.zip
+*.ipynb
+build_colab.py
+run_desktop.py
+build_android.bat
