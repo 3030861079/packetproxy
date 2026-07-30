@@ -1,6 +1,6 @@
-
 plugins {
     id("com.android.application")
+    id("com.chaquo.python")
 }
 
 android {
@@ -13,6 +13,18 @@ android {
         targetSdk 31
         versionCode 1
         versionName "2.0.0"
+
+        ndk {
+            abiFilters += "arm64-v8a"
+        }
+
+        python {
+            version "3.8"
+            pip {
+                install "kivy==2.1.0"
+                install "kivymd==0.104.2"
+            }
+        }
     }
 
     buildTypes {
@@ -24,6 +36,12 @@ android {
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_11
         targetCompatibility JavaVersion.VERSION_11
+    }
+
+    sourceSets {
+        main {
+            python.srcDir "src/main/python"
+        }
     }
 }
 

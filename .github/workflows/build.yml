@@ -19,18 +19,37 @@ jobs:
           pip3 install --upgrade pip -q
           pip3 install buildozer cython -q
 
-      - name: Clone p4a at known-good commit (hostpython=3.10)
-        run: |
-          git clone --depth 1 --branch v2024.01.21 https://github.com/kivy/python-for-android.git /tmp/p4a 2>&1 || \
-          git clone https://github.com/kivy/python-for-android.git /tmp/p4a && cd /tmp/p4a && git checkout 33c2f28 2>&1 || true
-          echo "p4a version:"
-          cd /tmp/p4a && git log --oneline -1
-          echo "hostpython recipe version:"
-          grep version /tmp/p4a/pythonforandroid/recipes/hostpython3/__init__.py 2>/dev/null | head -1 || echo "not found"
-          echo "p4a.source_dir = /tmp/p4a" >> buildozer.spec
-
-      - name: Build APK
+      - name: Build APK (first pass - sets up SDK, NDK, p4a)
+        continue-on-error: true
         run: yes | buildozer -v android debug
+
+      - name: Pin hostpython to 3.10.13 and rebuild
+        run: |
+          RECIPE=".buildozer/android/platform/python-for-android/pythonforandroid/recipes/hostpython3/__init__.py"
+          echo "=== Patching hostpython3 recipe ==="
+          cat "$RECIPE" | grep -E 'version|url' | head -3
+
+          # Change version from 3.14.x to 3.10.13
+          sed -i 's/^    version = "[^"]*"/    version = "3.10.13"/' "$RECIPE"
+
+          echo "Patched:"
+          cat "$RECIPE" | grep -E 'version|url' | head -3
+
+          # Remove ALL cached artifacts so p4a rebuilds from scratch
+          echo "=== Cleaning caches ==="
+          find .buildozer -path "*/hostpython3*" -type d -maxdepth 6 2>/dev/null | while read d; do
+            echo "  Cleaning: $d"
+            rm -rf "$d"
+          done
+
+          # Remove cached Python download
+          find . -name "Python-3.14*.tar.*" -delete 2>/dev/null || true
+          find . -name "Python-3.1[3-9]*.tar.*" -delete 2>/dev/null || true
+          echo "Caches cleaned"
+
+          # Rebuild - p4a will download Python 3.10.13 and rebuild hostpython
+          echo "=== Second pass ==="
+          buildozer -v android debug
 
       - name: Upload APK
         if: always()
