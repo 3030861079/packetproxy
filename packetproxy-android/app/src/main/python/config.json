@@ -1,0 +1,26 @@
+{
+  "server": {
+    "host": "127.0.0.1",
+    "port": 3160,
+    "max_connections": 100,
+    "timeout": 30,
+    "buffer_size": 4096
+  },
+  "security": {
+    "enable_auth": false,
+    "username": "",
+    "password": ""
+  },
+  "ui": {
+    "theme": "Dark",
+    "auto_refresh": true,
+    "refresh_interval": 1.0
+  },
+  "packet": {
+    "max_packets": 500
+  },
+  "network": {
+    "connect_timeout": 10,
+    "read_timeout": 30
+  }
+}
