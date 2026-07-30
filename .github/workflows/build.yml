@@ -12,31 +12,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install system deps
+      - name: Install deps
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq \
-            python3-pip build-essential git zip unzip openjdk-17-jdk \
-            autoconf libtool pkg-config zlib1g-dev \
-            libncurses5-dev libncursesw5-dev libtinfo5 \
-            cmake libffi-dev libssl-dev binutils libltdl-dev
+          sudo apt-get install -y -qq python3-pip build-essential git zip unzip openjdk-17-jdk autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev binutils libltdl-dev
           pip3 install --upgrade pip -q
           pip3 install buildozer cython -q
 
-      - name: Clone p4a and pin hostpython to 3.10.13
+      - name: Clone p4a at known-good commit (hostpython=3.10)
         run: |
-          git clone --depth 1 https://github.com/kivy/python-for-android.git /tmp/p4a
-          HP=$(find /tmp/p4a/pythonforandroid/recipes -name "hostpython3" -type d)
-          RECIPE="$HP/__init__.py"
-          echo "Recipe: $RECIPE"
-          echo "Before:"
-          grep -E "version|url" "$RECIPE" | head -3
-          # Pin to Python 3.10.13 (has cgi, Cython needs it)
-          sed -i 's|version\s*=.*|version = "3.10.13"|' "$RECIPE"
-          sed -i 's|url\s*=.*|url = "https://www.python.org/ftp/python/{version}/Python-{version}.tar.xz"|' "$RECIPE"
-          echo "After:"
-          grep -E "version|url" "$RECIPE" | head -3
-          # Add p4a.source_dir to buildozer.spec so buildozer uses our p4a
+          git clone --depth 1 --branch v2024.01.21 https://github.com/kivy/python-for-android.git /tmp/p4a 2>&1 || \
+          git clone https://github.com/kivy/python-for-android.git /tmp/p4a && cd /tmp/p4a && git checkout 33c2f28 2>&1 || true
+          echo "p4a version:"
+          cd /tmp/p4a && git log --oneline -1
+          echo "hostpython recipe version:"
+          grep version /tmp/p4a/pythonforandroid/recipes/hostpython3/__init__.py 2>/dev/null | head -1 || echo "not found"
           echo "p4a.source_dir = /tmp/p4a" >> buildozer.spec
 
       - name: Build APK
