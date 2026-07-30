@@ -1,8 +1,6 @@
 name: Build APK
 
 on:
-  push:
-    branches: [main, master]
   workflow_dispatch:
 
 jobs:
@@ -15,41 +13,17 @@ jobs:
       - name: Install deps
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq python3-pip build-essential git zip unzip openjdk-17-jdk autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev binutils libltdl-dev
-          pip3 install --upgrade pip -q
-          pip3 install buildozer cython -q
+          sudo apt-get install -y -qq python3-pip git zip unzip openjdk-17-jdk autoconf libtool zlib1g-dev libncurses5-dev cmake libffi-dev libssl-dev
+          pip3 install --upgrade pip -q && pip3 install buildozer cython -q
 
-      - name: Build APK (first pass - sets up SDK, NDK, p4a)
-        continue-on-error: true
-        run: yes | buildozer -v android debug
-
-      - name: Pin hostpython to 3.10.13 and rebuild
+      - name: Clone p4a and pin hostpython to 3.10.13
         run: |
-          RECIPE=".buildozer/android/platform/python-for-android/pythonforandroid/recipes/hostpython3/__init__.py"
-          echo "=== Patching hostpython3 recipe ==="
-          cat "$RECIPE" | grep -E 'version|url' | head -3
+          git clone --depth 1 https://github.com/kivy/python-for-android.git /tmp/p4a
+          python3 patches/pin_hostpython.py /tmp/p4a
+          echo "p4a.source_dir = /tmp/p4a" >> buildozer.spec
 
-          # Change version from 3.14.x to 3.10.13
-          sed -i 's/^    version = "[^"]*"/    version = "3.10.13"/' "$RECIPE"
-
-          echo "Patched:"
-          cat "$RECIPE" | grep -E 'version|url' | head -3
-
-          # Remove ALL cached artifacts so p4a rebuilds from scratch
-          echo "=== Cleaning caches ==="
-          find .buildozer -path "*/hostpython3*" -type d -maxdepth 6 2>/dev/null | while read d; do
-            echo "  Cleaning: $d"
-            rm -rf "$d"
-          done
-
-          # Remove cached Python download
-          find . -name "Python-3.14*.tar.*" -delete 2>/dev/null || true
-          find . -name "Python-3.1[3-9]*.tar.*" -delete 2>/dev/null || true
-          echo "Caches cleaned"
-
-          # Rebuild - p4a will download Python 3.10.13 and rebuild hostpython
-          echo "=== Second pass ==="
-          buildozer -v android debug
+      - name: Build APK (single pass)
+        run: yes | buildozer -v android debug
 
       - name: Upload APK
         if: always()

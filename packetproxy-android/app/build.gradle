@@ -5,25 +5,21 @@ plugins {
 
 android {
     namespace "org.packetproxy"
-    compileSdk 31
+    compileSdk 35
 
     defaultConfig {
         applicationId "org.packetproxy"
         minSdk 21
-        targetSdk 31
+        targetSdk 35
         versionCode 1
         versionName "2.0.0"
 
         ndk {
-            abiFilters += "arm64-v8a"
+            abiFilters "arm64-v8a"
         }
 
         python {
-            version "3.8"
-            pip {
-                install "kivy==2.1.0"
-                install "kivymd==0.104.2"
-            }
+            version "3.10"
         }
     }
 
