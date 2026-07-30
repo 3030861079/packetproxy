@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup build environment
+      - name: Install system dependencies
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq \
@@ -21,12 +21,52 @@ jobs:
             autoconf libtool pkg-config zlib1g-dev \
             libncurses5-dev libncursesw5-dev libtinfo5 \
             cmake libffi-dev libssl-dev binutils libltdl-dev
-          pip3 install --upgrade pip -q
-          pip3 install buildozer cython -q
+          python3 -m pip install --upgrade pip -q
+          python3 -m pip install buildozer cython -q
 
-      - name: Build APK
+      - name: Build APK (pass 1 - build hostpython, will fail on kivy)
+        continue-on-error: true
         run: |
-          yes | buildozer -v android debug
+          yes | buildozer -v android debug 2>&1 | tee build.log || true
+
+      - name: Patch hostpython - install cgi compat module
+        run: |
+          HOSTPYTHON=$(find .buildozer -path "*/hostpython3/*" -name "python" -type f 2>/dev/null | head -1)
+          if [ -n "$HOSTPYTHON" ]; then
+            echo "Found hostpython: $HOSTPYTHON"
+            "$HOSTPYTHON" --version
+            # Python 3.13+ removed 'cgi' module; Cython 0.29.x needs it
+            "$HOSTPYTHON" -m pip install legacy-cgi 2>&1 || echo "legacy-cgi pip install failed, trying alternative..."
+            # Alternative: directly create cgi.py in stdlib
+            STDLIB=$("$HOSTPYTHON" -c "import sysconfig; print(sysconfig.get_path('stdlib'))" 2>/dev/null)
+            if [ -n "$STDLIB" ] && [ -d "$STDLIB" ]; then
+              echo "Creating cgi.py stub in $STDLIB"
+              cat > "$STDLIB/cgi.py" << 'PYEOF'
+# Minimal cgi module for Cython compat (Python 3.13+ compat)
+import html
+def escape(s, quote=True):
+    return html.escape(s, quote=quote)
+parse_qs = None
+parse_qsl = None
+try:
+    from urllib.parse import parse_qs, parse_qsl
+except ImportError:
+    pass
+def parse_header(line):
+    from email.message import Message
+    m = Message()
+    m['content-type'] = line
+    return m.get_content_type(), m.get_params()
+PYEOF
+              echo "cgi.py stub created"
+            fi
+          else
+            echo "hostpython not found - skipping patch"
+          fi
+
+      - name: Build APK (pass 2 - retry with patched hostpython)
+        run: |
+          buildozer -v android debug
 
       - name: Upload APK artifact
         if: always()
