@@ -18,6 +18,7 @@ android.allow_backup = False
 android.presplash_color = #1A1A2E
 android.logcat_filters = *:S python:D
 android.foreground_service_type = specialUse
+p4a.hostpython_version = 3.10.13
 
 [buildozer]
 log_level = 2
