@@ -24,38 +24,42 @@ jobs:
           python3 -m pip install --upgrade pip -q
           python3 -m pip install buildozer cython -q
 
-      - name: Init buildozer (downloads p4a, sets up SDK)
+      - name: Init buildozer (downloads SDK, builds hostpython)
         run: yes | buildozer -v android debug || true
 
-      - name: Pin hostpython3 to 3.10.13 (Python 3.14 removed cgi, breaks Cython)
+      - name: Inject cgi.py into hostpython3 stdlib
         run: |
-          RECIPE=$(find .buildozer -path "*/recipes/hostpython3/__init__.py" -type f 2>/dev/null | head -1)
-          if [ -z "$RECIPE" ]; then
-            echo "ERROR: hostpython3 recipe not found"
+          # Find the built hostpython3 binary
+          HP=$(find .buildozer -path "*/hostpython3/*/python" -type f 2>/dev/null | head -1)
+          if [ -z "$HP" ]; then
+            echo "hostpython3 binary not found, searching..."
             find .buildozer -name "hostpython3" -type d 2>/dev/null
+            find .buildozer -path "*hostpython*" -name "python" 2>/dev/null
             exit 0
           fi
-          echo "Found: $RECIPE"
-          # Check if already at 3.10
-          CURRENT=$(grep 'version\s*=' "$RECIPE" | head -1)
-          echo "Current: $CURRENT"
-          if echo "$CURRENT" | grep -q "3.10"; then
-            echo "Already Python 3.10, no change needed"
-          else
-            echo "Pinning to Python 3.10.13..."
-            sed -i 's/version\s*=.*/version = "3.10.13"/' "$RECIPE"
-            sed -i 's|url\s*=.*|url = "https://www.python.org/ftp/python/{version}/Python-{version}.tar.xz"|' "$RECIPE"
-            echo "Patched recipe:"
-            grep -E 'version|url' "$RECIPE" | head -5
-            # Remove old hostpython build artifacts so it rebuilds
-            HOSTPYDIR=$(find .buildozer -path "*/build/other_builds/hostpython3" -type d 2>/dev/null | head -1)
-            if [ -n "$HOSTPYDIR" ]; then
-              echo "Removing old hostpython build: $HOSTPYDIR"
-              rm -rf "$HOSTPYDIR"
-            fi
+          echo "hostpython3 binary: $HP"
+          $HP --version
+
+          # Get its stdlib path
+          STDLIB=$($HP -c "import sysconfig; print(sysconfig.get_path('stdlib'))")
+          echo "stdlib: $STDLIB"
+
+          if [ ! -d "$STDLIB" ]; then
+            echo "stdlib not found at $STDLIB"
+            exit 1
           fi
 
-      - name: Build APK (retry with Python 3.10 hostpython)
+          # Inject cgi.py from our stub
+          cp cgi_stub.py "$STDLIB/cgi.py"
+          echo "=== Patched cgi.py into stdlib ==="
+          $HP -c "import cgi; print('cgi OK, escape:', cgi.escape('<test>'))"
+
+          # Also for safety: remove hostpython build marker so p4a might rebuild
+          HP_BUILD=$(dirname $(dirname "$HP"))
+          echo "Hostpython build dir: $HP_BUILD"
+          ls "$HP_BUILD" 2>/dev/null | head -5
+
+      - name: Build APK (second pass)
         run: buildozer -v android debug
 
       - name: Upload APK
